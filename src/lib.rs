@@ -1,5 +1,7 @@
 use std::ffi::{c_char, c_ulong, CStr};
+use std::fs::File;
 use std::mem::MaybeUninit;
+use std::path::Path;
 use std::ptr::NonNull;
 use nexus_rs::raw_structs::{AddonAPI, AddonDefinition, AddonVersion, EAddonFlags, ELogLevel, LPVOID};
 use walkdir::WalkDir;
@@ -31,11 +33,39 @@ unsafe extern "C" fn load(api: *mut AddonAPI) {
         .to_str()
         .unwrap()
         .to_string();
+    let wd = WalkDir::new(dir.clone());
+    let wd_it = wd.into_iter();
 
-    for e in WalkDir::new(dir) {
-        log(ELogLevel::DEBUG, e.unwrap().path().display().to_string());
+
+    // let docs_dir = dirs_next::document_dir().unwrap();
+    // let backup_dir = docs_dir.join("nexus-configs");
+    // let backup_file = File::create(backup_dir.join("backup.zip"));
+
+    // let mut zip = zip::ZipWriter::new(backup_file.unwrap());
+    // let mut buffer = Vec::new();
+
+    for e in wd_it {
+        let entry = e.unwrap();
+        let path = entry.path();
+        let name = path.strip_prefix(dir.clone()).unwrap();
+
+        if path.is_file() {
+            if name.to_str().unwrap().to_string().contains(".dll") {
+                log(ELogLevel::CRITICAL, format!("Skipping {path:?}...").to_string());
+            }
+            log(ELogLevel::INFO, format!("Adding {path:?} as {name:?}...").to_string());
+        } else if !name.as_os_str().is_empty() {
+            log(ELogLevel::INFO, format!("Adding dir {path:?} as {name:?}...").to_string());
+        }
     }
-    
+
+    // for e in WalkDir::new(dir) {
+    //     let ee = e.unwrap();
+    //     let s = ee.file_name().to_str().unwrap().to_string();
+    //
+    //
+    //     log(ELogLevel::DEBUG, s);
+    // }
 }
 
 pub fn log(level: ELogLevel, s: String) {
