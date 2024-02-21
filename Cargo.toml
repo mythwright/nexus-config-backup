@@ -1,0 +1,27 @@
+[package]
+name = "nexus-config-backup"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+[lib]
+crate-type = ["cdylib"]
+name = "nexus_config_backup"
+
+[dependencies]
+arcdps-imgui = "0.8.0"
+bitmask-enum = "2.2.3"
+once_cell = { version = "1.18.0", features = [] }
+serde = { version = "1.0.193", features = ["derive"] }
+walkdir = "2.4.0"
+
+[dependencies.nexus-rs]
+git = "https://github.com/belst/raidcore_bindings-rs"
+rev = "423e14136e2adec56ba392e2db4e0e61f8507de5"
+
+[dependencies.windows]
+version = "0.52.0"
+features = ["Win32_System_LibraryLoader", "Win32_Foundation", "Win32_System_SystemServices", "Win32_UI_WindowsAndMessaging", "Win32_UI"]
+
+[target.'cfg(windows)'.build-dependencies]
+winres = "0.1.11"
