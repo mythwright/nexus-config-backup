@@ -11,11 +11,11 @@ name = "nexus_config_backup"
 [dependencies]
 arcdps-imgui = "0.8.0"
 bitmask-enum = "2.2.3"
-once_cell = { version = "1.18.0", features = [] }
 serde = { version = "1.0.193", features = ["derive"] }
 walkdir = "2.4.0"
 zip = "0.6.6"
 dirs-next = "2.0.0"
+chrono = "0.4.34"
 
 [dependencies.nexus-rs]
 git = "https://github.com/belst/raidcore_bindings-rs"
