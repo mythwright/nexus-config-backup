@@ -93,7 +93,7 @@ pub unsafe fn run_backup() {
 
         if path.is_file() {
             if name.to_str().unwrap().to_string().contains(".dll") {
-                log(ELogLevel::DEBUG, format!("Skipping {path:?}...").to_string());
+                // log(ELogLevel::DEBUG, format!("Skipping {path:?}...").to_string());
                 continue;
             }
             #[allow(deprecated)]
@@ -104,9 +104,9 @@ pub unsafe fn run_backup() {
             zip.write_all(&buffer).unwrap();
             buffer.clear();
 
-            log(ELogLevel::DEBUG, format!("Adding {path:?} as {name:?}...").to_string());
+            // log(ELogLevel::DEBUG, format!("Adding {path:?} as {name:?}...").to_string());
         } else if !name.as_os_str().is_empty() {
-            log(ELogLevel::DEBUG, format!("Adding dir {path:?} as {name:?}...").to_string());
+            // log(ELogLevel::DEBUG, format!("Adding dir {path:?} as {name:?}...").to_string());
             #[allow(deprecated)]
             zip.add_directory_from_path(name, options).unwrap();
         }
@@ -148,7 +148,7 @@ pub extern "C" fn GetAddonDef() -> *mut AddonDefinition {
         version: AddonVersion {
             major: 0,
             minor: 1,
-            build: 0,
+            build: 1,
             revision: 0,
         },
         author: s!("Zyian").0 as _,
