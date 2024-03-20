@@ -47,7 +47,7 @@ unsafe extern "C" fn load(api: *mut AddonAPI) {
 
 
     (api.add_simple_shortcut)(convert_string(SHORTCUT_ID), addon_shortcut);
-    (api.register_render)(ERenderType::OptionsRender, render_options);
+    // (api.register_render)(ERenderType::OptionsRender, render_options);
 }
 
 pub fn convert_string(s: &str) -> *const c_char {
@@ -56,7 +56,7 @@ pub fn convert_string(s: &str) -> *const c_char {
 }
 
 pub unsafe fn run_backup() -> bool {
-    let handler = thread::spawn(|| {
+    let _ = thread::spawn(|| {
         let dir = CStr::from_ptr((API.assume_init().get_addon_directory)(convert_string("")))
             .to_str()
             .unwrap()
@@ -161,7 +161,7 @@ pub extern "C" fn GetAddonDef() -> *mut AddonDefinition {
         version: AddonVersion {
             major: 0,
             minor: 1,
-            build: 1,
+            build: 2,
             revision: 0,
         },
         author: s!("Zyian").0 as _,
