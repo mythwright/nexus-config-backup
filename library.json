@@ -1,6 +1,6 @@
 {
   "id": -50602,
   "name": "Addon Config Backup Tool",
-  "description": "A small tool to help keep your addons backed up in case of nuking your GW2 install folder",
+  "description": "A small utility to save all of your addons configs safely away for a rainy day.",
   "download": "https://github.com/mythwright/nexus-config-backup"
 }

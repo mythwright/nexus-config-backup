@@ -1,66 +1,33 @@
-use std::ffi::{c_char, c_ulong, c_void, CStr};
+use std::{fs, thread};
 use std::fs::File;
 use std::io::{Read, Write};
-use std::mem::MaybeUninit;
-use std::{fs, ptr, thread};
-use std::ptr::NonNull;
-use arcdps_imgui::{Context, Ui};
-use arcdps_imgui::sys::{igSetAllocatorFunctions, igSetCurrentContext};
-use nexus_rs::raw_structs::{AddonAPI, AddonDefinition, AddonVersion, EAddonFlags, ELogLevel, ERenderType, LPVOID};
+use nexus::{AddonFlags, log, paths, render, UpdateProvider};
+use nexus::gui::RawGuiRender;
+use nexus::quick_access::add_simple_shortcut;
 use walkdir::WalkDir;
-use windows::core::{PCSTR, s};
-use windows::Win32::Foundation::{HINSTANCE};
-use windows::Win32::System::SystemServices;
 use zip::write::FileOptions;
 
-#[no_mangle]
-unsafe extern "C" fn DllMain(
-    _hinst_dll: HINSTANCE,
-    fdw_reason: c_ulong,
-    _lpv_reserveded: LPVOID,
-) -> bool {
-    match fdw_reason {
-        SystemServices::DLL_PROCESS_ATTACH => {}
-        _ => {}
-    }
-    true
-}
-
-static mut API: MaybeUninit<&'static AddonAPI> = MaybeUninit::uninit();
-static mut CTX: MaybeUninit<Context> = MaybeUninit::uninit();
-static mut UI: MaybeUninit<Ui> = MaybeUninit::uninit();
 static SHORTCUT_ID: &str = "QAS_CONFIG_BACKUP";
 
-unsafe extern "C" fn load(api: *mut AddonAPI) {
-    let api = &*api;
-    API.write(api);
-
-    igSetCurrentContext(api.imgui_context);
-    igSetAllocatorFunctions(
-        Some(api.imgui_malloc),
-        Some(api.imgui_free),
-        ptr::null::<c_void>() as *mut _,
-    );
-
-    CTX.write(Context::current());
-    UI.write(Ui::from_ctx(CTX.assume_init_ref()));
-
-
-    (api.add_simple_shortcut)(convert_string(SHORTCUT_ID), addon_shortcut);
-    // (api.register_render)(ERenderType::OptionsRender, render_options);
+nexus::export! {
+    name: "Addon Config Backup",
+    signature: -50602,
+    load,
+    unload,
+    flags: AddonFlags::None,
+    provider: UpdateProvider::GitHub,
+    update_link: "https://github.com/mythwright/nexus-config-backup",
 }
 
-pub fn convert_string(s: &str) -> *const c_char {
-    let a = PCSTR::from_raw((s.to_owned() + "\0").as_ptr());
-    a.as_ptr() as *const c_char
+fn load() {
+    add_simple_shortcut(SHORTCUT_ID, addon_shortcut()).revert_on_unload();
 }
 
-pub unsafe fn run_backup() -> bool {
+fn unload() {}
+
+pub fn run_backup() -> bool {
     let _ = thread::spawn(|| {
-        let dir = CStr::from_ptr((API.assume_init().get_addon_directory)(convert_string("")))
-            .to_str()
-            .unwrap()
-            .to_string();
+        let dir = paths::get_addon_dir("").unwrap();
         let wd = WalkDir::new(dir.clone());
         let wd_it = wd.into_iter().filter_entry(|e| {
             if e.file_type().is_dir() && e.file_name().to_str().unwrap().contains("common") {
@@ -78,7 +45,11 @@ pub unsafe fn run_backup() -> bool {
         let backup_file = match File::create(backup_dir.join(format!("backup-{}.zip", local_time.format("%Y-%m-%d-%H-%M")))) {
             Ok(b) => b,
             Err(err) => {
-                log(ELogLevel::CRITICAL, format!("Failed to create file {err}").to_string());
+                log::log(
+                    log::LogLevel::Critical,
+                    "addon-config-backup",
+                    format!("Failed to create file {err}"),
+                );
                 return;
             }
         };
@@ -118,62 +89,18 @@ pub unsafe fn run_backup() -> bool {
     true
 }
 
-pub fn log(level: ELogLevel, s: String) {
-    unsafe {
-        let api = API.assume_init();
-        (api.log)(
-            level,
-            (s + "\0").as_ptr() as _,
-        );
-    }
-}
-
-pub unsafe extern "C" fn addon_shortcut() {
-    let ui = UI.assume_init_ref();
-
-    ui.separator();
-    let clicked = ui.button("Run Backup");
-    if clicked {
-        let finished = run_backup();
-        if finished {
-            log(ELogLevel::INFO, "Finished saving backup to nexus-configs folder".to_string());
+fn addon_shortcut() -> RawGuiRender {
+    render!(|ui| {
+        ui.separator();
+        let clicked = ui.button("Run Backup");
+        if clicked {
+            if run_backup() {
+                log::log(
+                    log::LogLevel::Info,
+                    "Addon Config Backup",
+                    "Finished saving backup to nexus-configs folder",
+                );
+            }
         }
-    }
-}
-
-pub unsafe extern "C" fn render_options() {
-    let ui = UI.assume_init_ref();
-
-    ui.button("Test backup (Doesn't do anything)");
-}
-
-unsafe extern "C" fn unload() {
-    (API.assume_init().remove_simple_shortcut)(convert_string(SHORTCUT_ID));
-    (API.assume_init().unregister_render)(render_options);
-}
-
-#[no_mangle]
-pub extern "C" fn GetAddonDef() -> *mut AddonDefinition {
-    static AD: AddonDefinition = AddonDefinition {
-        signature: -50602,
-        apiversion: nexus_rs::raw_structs::NEXUS_API_VERSION,
-        name: b"Addon Config Backup Tool\0".as_ptr() as *const c_char,
-        version: AddonVersion {
-            major: 0,
-            minor: 1,
-            build: 2,
-            revision: 0,
-        },
-        author: s!("Zyian").0 as _,
-        description: s!("A small tool to help keep your addons backed up in case of nuking your GW2 install folder").0 as _,
-        load,
-        unload: Some(unsafe { NonNull::new_unchecked(unload as _) }),
-        flags: EAddonFlags::None,
-        provider: nexus_rs::raw_structs::EUpdateProvider::GitHub,
-        update_link: Some(unsafe {
-            NonNull::new_unchecked(s!("https://github.com/mythwright/nexus-config-backup").0 as _)
-        }),
-    };
-
-    &AD as *const _ as _
+    })
 }
