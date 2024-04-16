@@ -1,9 +1,11 @@
 use std::{fs, thread};
+use std::fmt::Error;
 use std::fs::File;
 use std::io::{Read, Write};
 use nexus::{AddonFlags, log, paths, render, UpdateProvider};
 use nexus::gui::RawGuiRender;
 use nexus::quick_access::add_simple_shortcut;
+use nexus::alert::alert_notify;
 use walkdir::WalkDir;
 use zip::write::FileOptions;
 
@@ -25,7 +27,7 @@ fn load() {
 
 fn unload() {}
 
-pub fn run_backup() -> bool {
+pub fn run_backup() -> Result<(), Error> {
     let _ = thread::spawn(|| {
         let dir = paths::get_addon_dir("").unwrap();
         let wd = WalkDir::new(dir.clone());
@@ -86,7 +88,7 @@ pub fn run_backup() -> bool {
         }
         zip.finish().unwrap();
     });
-    true
+    Ok(())
 }
 
 fn addon_shortcut() -> RawGuiRender {
@@ -94,12 +96,13 @@ fn addon_shortcut() -> RawGuiRender {
         ui.separator();
         let clicked = ui.button("Run Backup");
         if clicked {
-            if run_backup() {
+            if run_backup().ok().is_some() {
                 log::log(
                     log::LogLevel::Info,
                     "Addon Config Backup",
                     "Finished saving backup to nexus-configs folder",
                 );
+                alert_notify("Finished saving backup to nexus-configs folder");
             }
         }
     })
