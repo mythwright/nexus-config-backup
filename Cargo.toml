@@ -1,6 +1,6 @@
 [package]
 name = "nexus-config-backup"
-version = "0.1.4"
+version = "0.1.5"
 edition = "2021"
 authors = ["Zyian"]
 description = "A small utility to save all of your addons configs safely away for a rainy day."
