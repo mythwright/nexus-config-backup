@@ -11,7 +11,6 @@ use std::path::PathBuf;
 use nexus::{AddonFlags, log, paths, render, UpdateProvider};
 use nexus::alert::alert_notify;
 use nexus::gui::{RawGuiRender, register_render, RenderType};
-use nexus::imgui::InputInt;
 use nexus::quick_access::add_simple_shortcut;
 use once_cell::sync::Lazy;
 use serde::{Deserialize, Serialize};
@@ -73,14 +72,10 @@ impl ConfigBackup {
         target
     }
 
-    fn backup_location(&self) -> String {
-        self.backup_folder.clone().unwrap().to_str().unwrap().to_string()
-    }
-    
     fn save(&mut self) {
         let config_path = paths::get_addon_dir("addon-config-backup").unwrap();
         let config_path = ConfigBackup::get_or_init_folder(&config_path).join("config.toml");
-        let mut config = File::open(config_path).unwrap();
+        let mut config = File::create(config_path).unwrap();
         config.write_all(toml::to_string_pretty(self.settings.as_mut().unwrap()).unwrap().as_bytes()).unwrap();
     }
 }
@@ -90,7 +85,7 @@ struct Settings {
     pub target_folder: String,
     pub backup_on_launch: bool,
     pub delete_old_on_launch: bool,
-    pub backups_to_keep: u8,
+    pub backups_to_keep: i32,
 }
 
 impl Settings {
@@ -122,10 +117,15 @@ nexus::export! {
 }
 
 fn load() {
-    grab_global().init();
-
+    let g = grab_global();
+    g.init();
+    
     add_simple_shortcut(SHORTCUT_ID, addon_shortcut()).revert_on_unload();
     register_render(RenderType::OptionsRender, render!(render_options)).revert_on_unload();
+    
+    if g.settings.as_mut().unwrap().backup_on_launch {
+        let _ = run_backup();
+    }
 }
 
 fn unload() {
@@ -137,13 +137,17 @@ fn render_options(ui: &nexus::imgui::Ui) {
 
     ui.text("General Settings");
     ui.separator();
-    ui.input_text("Destination Folder", &mut g.backup_location()).read_only(true).build();
+    ui.input_text("Destination Folder", &mut g.settings.as_mut().unwrap().target_folder).build();
     ui.checkbox("Backup Settings on Game Launch", &mut g.settings.as_mut().unwrap().backup_on_launch);
 
-    ui.text("Background Tasks");
-    ui.separator();
-    ui.checkbox("Automatically delete old backups",&mut g.settings.as_mut().unwrap().delete_old_on_launch);
-    InputInt::new(ui, "Backups to Keep", &mut i32::from(g.settings.as_mut().unwrap().backups_to_keep)).build();
+    // ui.text("Background Tasks");
+    // ui.separator();
+    // ui.checkbox("Automatically delete old backups", &mut g.settings.as_mut().unwrap().delete_old_on_launch);
+    // InputInt::new(ui, "Backups to Keep", &mut g.settings.as_mut().unwrap().backups_to_keep).build();
+
+    if ui.button("Save settings") {
+        g.save();
+    }
 }
 
 fn grab_global() -> &'static mut Lazy<ConfigBackup> {
@@ -162,8 +166,9 @@ pub fn run_backup() -> Result<(), Error> {
             return true;
         });
 
-        let backup_dir = dirs_next::document_dir().unwrap().join("nexus-configs");
-        let backup_dir = ConfigBackup::get_or_init_folder(&backup_dir);
+        let g = grab_global();
+        let bf = PathBuf::from(g.settings.as_mut().unwrap().target_folder.clone());
+        let backup_dir = ConfigBackup::get_or_init_folder(&bf);
         let local_time = chrono::Local::now();
         let backup_file = match File::create(backup_dir.join(format!("backup-{}.zip", local_time.format("%Y-%m-%d-%H-%M")))) {
             Ok(b) => b,
