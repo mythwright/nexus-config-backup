@@ -1,27 +1,33 @@
 use std::{
-    fmt::Error,
-    fs,
+    fs::{self, File},
     io::{Read, Write},
+    path::PathBuf,
     ptr::addr_of_mut,
     thread,
 };
-use std::fs::File;
-use std::path::PathBuf;
 
-use nexus::{AddonFlags, log, paths, render, UpdateProvider};
-use nexus::alert::alert_notify;
-use nexus::gui::{RawGuiRender, register_render, RenderType};
-use nexus::quick_access::add_simple_shortcut;
+use nexus::{
+    AddonFlags,
+    alert::alert_notify,
+    gui::{RawGuiRender, register_render, RenderType},
+    log,
+    paths,
+    quick_access::add_simple_shortcut,
+    render,
+    UpdateProvider,
+};
+use nexus::imgui::InputInt;
 use once_cell::sync::Lazy;
-use serde::{Deserialize, Serialize};
 use walkdir::WalkDir;
 use zip::write::SimpleFileOptions;
+
+mod settings;
 
 static SHORTCUT_ID: &str = "QAS_CONFIG_BACKUP";
 
 struct ConfigBackup {
     pub backup_folder: Option<PathBuf>,
-    settings: Option<Settings>,
+    settings: Option<settings::Settings>,
 }
 
 impl ConfigBackup {
@@ -45,14 +51,14 @@ impl ConfigBackup {
                     );
                     return false;
                 }
-                let s = Settings::default();
+                let s = settings::Settings::default();
                 res.ok().unwrap().write_all(toml::to_string_pretty(&s).unwrap().as_bytes()).unwrap();
             }
         }
         let mut content = String::new();
         File::open(config_path).unwrap().read_to_string(&mut content).unwrap();
 
-        let res: Result<Settings, toml::de::Error> = toml::from_str(content.as_str());
+        let res: Result<settings::Settings, toml::de::Error> = toml::from_str(content.as_str());
         if res.is_err() {
             log::log(
                 log::LogLevel::Critical,
@@ -80,30 +86,6 @@ impl ConfigBackup {
     }
 }
 
-#[derive(Deserialize, Serialize)]
-struct Settings {
-    pub target_folder: String,
-    pub backup_on_launch: bool,
-    pub delete_old_on_launch: bool,
-    pub backups_to_keep: i32,
-}
-
-impl Settings {
-    fn default() -> Settings {
-        Settings {
-            target_folder: dirs_next::document_dir()
-                .unwrap()
-                .join("nexus-configs")
-                .to_str()
-                .unwrap()
-                .to_string(),
-            backup_on_launch: false,
-            delete_old_on_launch: false,
-            backups_to_keep: 5,
-        }
-    }
-}
-
 static mut GLOBAL_CONFIG: Lazy<ConfigBackup> = Lazy::new(ConfigBackup::new);
 
 nexus::export! {
@@ -119,12 +101,16 @@ nexus::export! {
 fn load() {
     let g = grab_global();
     g.init();
-    
+
     add_simple_shortcut(SHORTCUT_ID, addon_shortcut()).revert_on_unload();
     register_render(RenderType::OptionsRender, render!(render_options)).revert_on_unload();
-    
+
     if g.settings.as_mut().unwrap().backup_on_launch {
-        let _ = run_backup();
+        run_backup();
+    }
+    
+    if g.settings.as_mut().unwrap().delete_old_on_launch {
+        cleanup_old_backups();
     }
 }
 
@@ -140,10 +126,10 @@ fn render_options(ui: &nexus::imgui::Ui) {
     ui.input_text("Destination Folder", &mut g.settings.as_mut().unwrap().target_folder).build();
     ui.checkbox("Backup Settings on Game Launch", &mut g.settings.as_mut().unwrap().backup_on_launch);
 
-    // ui.text("Background Tasks");
-    // ui.separator();
-    // ui.checkbox("Automatically delete old backups", &mut g.settings.as_mut().unwrap().delete_old_on_launch);
-    // InputInt::new(ui, "Backups to Keep", &mut g.settings.as_mut().unwrap().backups_to_keep).build();
+    ui.text("Background Tasks");
+    ui.separator();
+    ui.checkbox("Automatically delete old backups", &mut g.settings.as_mut().unwrap().delete_old_on_launch);
+    InputInt::new(ui, "Backups to Keep", &mut g.settings.as_mut().unwrap().backups_to_keep).build();
 
     if ui.button("Save settings") {
         g.save();
@@ -155,7 +141,7 @@ fn grab_global() -> &'static mut Lazy<ConfigBackup> {
 }
 
 
-pub fn run_backup() -> Result<(), Error> {
+pub fn run_backup() {
     let _ = thread::spawn(|| {
         let dir = paths::get_addon_dir("").unwrap();
         let wd = WalkDir::new(dir.clone());
@@ -214,24 +200,55 @@ pub fn run_backup() -> Result<(), Error> {
         }
         zip.finish().unwrap();
     });
-    Ok(())
+}
+
+pub fn cleanup_old_backups() {
+    thread::spawn(|| {
+        let s = grab_global();
+
+        let wd = WalkDir::new(s.settings.as_mut().unwrap().target_folder.clone());
+        let wd_it = wd.sort_by(|a, b| b.file_name().cmp(a.file_name()));
+
+        let mut skipped = 0;
+        let keep_num = s.settings.as_mut().unwrap().backups_to_keep;
+        for e in wd_it {
+            if skipped < keep_num {
+                skipped += 1;
+                continue;
+            }
+            let entry = e.unwrap().clone();
+            let res = fs::remove_file(entry.path());
+            if res.is_err() {
+                log::log(
+                    log::LogLevel::Critical,
+                    "Addon Config Backup",
+                    format!("Failed to delete old file: {}", res.err().unwrap()),
+                );
+            } else {
+                log::log(
+                    log::LogLevel::Debug,
+                    "Addon Config Backup",
+                    format!("Deleted old file: {}", entry.path().to_str().unwrap()),
+                );
+            }
+        }
+    });
 }
 
 fn addon_shortcut() -> RawGuiRender {
     render!(|ui| {
         if ui.button("Run Backup") {
-            if run_backup().ok().is_some() {
-                log::log(
-                    log::LogLevel::Info,
-                    "Addon Config Backup",
-                    "Finished saving backup to nexus-configs folder",
-                );
-                alert_notify("Finished saving backup to nexus-configs folder");
-            }
+            run_backup();
+            log::log(
+                log::LogLevel::Info,
+                "Addon Config Backup",
+                "Saving addon configs to backup folder",
+            );
+            alert_notify("Finished saving addon configurations to backup folder");
         }
         ui.same_line_with_spacing(0.0, 10.0);
         if ui.button("Cleanup old backups") {
-
+            cleanup_old_backups();
         }
     })
 }

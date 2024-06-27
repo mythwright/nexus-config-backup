@@ -1,6 +1,6 @@
 [package]
 name = "nexus-config-backup"
-version = "0.1.5"
+version = "0.1.6"
 edition = "2021"
 authors = ["Zyian"]
 description = "A small utility to save all of your addons configs safely away for a rainy day."
@@ -11,7 +11,7 @@ crate-type = ["cdylib"]
 name = "nexus_config_backup"
 
 [dependencies]
-walkdir = "2.4.0"
+walkdir = "2.5.0"
 zip = "2.1.3"
 dirs-next = "2.0.0"
 chrono = "0.4.38"
@@ -21,4 +21,4 @@ serde = { version = "1.0.197", features = ["derive"] }
 
 [dependencies.nexus]
 git = "https://github.com/Zerthox/nexus-rs.git"
-rev = "8dec2c8ea5872b42c315c419493912ce5d7565fb"
+rev = "29062458472273522c77f38fdb20811a6913fe6b"
