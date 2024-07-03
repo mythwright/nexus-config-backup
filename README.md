@@ -1,4 +1,5 @@
-# Nexus Config Backup
+# Nexus Config Backup ![GitHub Downloads (all assets, all releases)](https://img.shields.io/github/downloads/mythwright/nexus-config-backup/total)
+
 
 A [Nexus addon](https://raidcore.gg/Nexus) to provide backup config files used by various GW2 addons
 
