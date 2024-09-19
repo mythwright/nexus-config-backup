@@ -1,8 +1,8 @@
 [package]
 name = "nexus-config-backup"
-version = "0.1.6"
+version = "0.1.7"
 edition = "2021"
-authors = ["Zyian"]
+authors = ["Zyian", "Mythwright"]
 description = "A small utility to save all of your addons configs safely away for a rainy day."
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
@@ -16,9 +16,9 @@ zip = "2.1.3"
 dirs-next = "2.0.0"
 chrono = "0.4.38"
 once_cell = "1.19.0"
-toml = "0.8.14"
-serde = { version = "1.0.197", features = ["derive"] }
+toml = "0.8.19"
+serde = { version = "1.0.210", features = ["derive"] }
 
 [dependencies.nexus]
-git = "https://github.com/Zerthox/nexus-rs.git"
-rev = "29062458472273522c77f38fdb20811a6913fe6b"
+git = "https://github.com/belst/nexus-rs.git"
+rev = "0e5a808122ca2164e1c4542e89d87d252d7a3fbb"
