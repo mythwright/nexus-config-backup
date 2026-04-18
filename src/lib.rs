@@ -11,11 +11,7 @@ use nexus::quick_access::add_quick_access_context_menu;
 use nexus::{
     alert::send_alert,
     gui::{register_render, RawGuiRender, RenderType},
-    log,
-    paths,
-    render,
-    AddonFlags,
-    UpdateProvider,
+    log, paths, render, AddonFlags, UpdateProvider,
 };
 use once_cell::sync::Lazy;
 use walkdir::WalkDir;
@@ -48,11 +44,16 @@ impl ConfigBackup {
                 return false;
             }
             let s = settings::Settings::default();
-            res.ok().unwrap().write_all(toml::to_string_pretty(&s).unwrap().as_bytes()).unwrap();
+            res.ok()
+                .unwrap()
+                .write_all(toml::to_string_pretty(&s).unwrap().as_bytes())
+                .unwrap();
         }
         let mut content = String::new();
-        File::open(config_path).unwrap().read_to_string(&mut content).unwrap();
-        
+        File::open(config_path)
+            .unwrap()
+            .read_to_string(&mut content)
+            .unwrap();
 
         let res: Result<settings::Settings, toml::de::Error> = toml::from_str(content.as_str());
         if res.is_err() {
@@ -80,7 +81,13 @@ impl ConfigBackup {
         let config_path = paths::get_addon_dir("addon-config-backup").unwrap();
         let config_path = ConfigBackup::get_or_init_folder(&config_path).join("config.toml");
         let mut config = File::create(config_path).unwrap();
-        config.write_all(toml::to_string_pretty(self.settings.as_mut().unwrap()).unwrap().as_bytes()).unwrap();
+        config
+            .write_all(
+                toml::to_string_pretty(self.settings.as_mut().unwrap())
+                    .unwrap()
+                    .as_bytes(),
+            )
+            .unwrap();
     }
 }
 
@@ -123,14 +130,56 @@ fn render_options(ui: &nexus::imgui::Ui) {
 
     ui.text("General Settings");
     ui.separator();
-    ui.input_text("Destination Folder", &mut g.settings.as_mut().unwrap().target_folder.as_mut().unwrap()).build();
-    ui.checkbox("Backup Settings on Game Launch", &mut g.settings.as_mut().unwrap().backup_on_launch.as_mut().unwrap());
-    ui.checkbox("Backup Addon DLLs", &mut g.settings.as_mut().unwrap().package_addons.as_mut().unwrap());
+    ui.input_text(
+        "Destination Folder",
+        &mut g.settings.as_mut().unwrap().target_folder.as_mut().unwrap(),
+    )
+    .build();
+    ui.checkbox(
+        "Backup Settings on Game Launch",
+        &mut g
+            .settings
+            .as_mut()
+            .unwrap()
+            .backup_on_launch
+            .as_mut()
+            .unwrap(),
+    );
+    ui.checkbox(
+        "Backup Addon DLLs",
+        &mut g
+            .settings
+            .as_mut()
+            .unwrap()
+            .package_addons
+            .as_mut()
+            .unwrap(),
+    );
 
     ui.text("Background Tasks");
     ui.separator();
-    ui.checkbox("Automatically delete old backups", &mut g.settings.as_mut().unwrap().delete_old_on_launch.as_mut().unwrap());
-    InputInt::new(ui, "Backups to Keep", &mut g.settings.as_mut().unwrap().backups_to_keep.as_mut().unwrap()).build();
+    ui.checkbox(
+        "Automatically delete old backups",
+        &mut g
+            .settings
+            .as_mut()
+            .unwrap()
+            .delete_old_on_launch
+            .as_mut()
+            .unwrap(),
+    );
+    InputInt::new(
+        ui,
+        "Backups to Keep",
+        &mut g
+            .settings
+            .as_mut()
+            .unwrap()
+            .backups_to_keep
+            .as_mut()
+            .unwrap(),
+    )
+    .build();
 
     if ui.button("Save settings") {
         g.save();
@@ -149,7 +198,6 @@ fn check_dll_pass(filename: &String) -> bool {
     filename.contains(".dll") && !g.settings.as_ref().unwrap().package_addons.unwrap()
 }
 
-
 pub fn run_backup() {
     let _ = thread::spawn(|| {
         let dir = paths::get_addon_dir("").unwrap();
@@ -162,10 +210,21 @@ pub fn run_backup() {
         });
 
         let g = grab_global();
-        let bf = PathBuf::from(g.settings.as_mut().unwrap().target_folder.as_mut().unwrap().clone());
+        let bf = PathBuf::from(
+            g.settings
+                .as_mut()
+                .unwrap()
+                .target_folder
+                .as_mut()
+                .unwrap()
+                .clone(),
+        );
         let backup_dir = ConfigBackup::get_or_init_folder(&bf);
         let local_time = chrono::Local::now();
-        let backup_file = match File::create(backup_dir.join(format!("backup-{}.zip", local_time.format("%Y-%m-%d-%H-%M")))) {
+        let backup_file = match File::create(backup_dir.join(format!(
+            "backup-{}.zip",
+            local_time.format("%Y-%m-%d-%H-%M")
+        ))) {
             Ok(b) => b,
             Err(err) => {
                 log::log(
@@ -180,7 +239,8 @@ pub fn run_backup() {
         let mut zip = zip::ZipWriter::new(backup_file);
         let mut buffer = Vec::new();
 
-        let options = SimpleFileOptions::default().compression_method(zip::CompressionMethod::Stored);
+        let options =
+            SimpleFileOptions::default().compression_method(zip::CompressionMethod::Stored);
 
         for e in wd_it {
             let entry = e.unwrap();
@@ -215,7 +275,15 @@ pub fn cleanup_old_backups() {
     thread::spawn(|| {
         let s = grab_global();
 
-        let wd = WalkDir::new(s.settings.as_mut().unwrap().target_folder.as_mut().unwrap().clone());
+        let wd = WalkDir::new(
+            s.settings
+                .as_mut()
+                .unwrap()
+                .target_folder
+                .as_mut()
+                .unwrap()
+                .clone(),
+        );
         let wd_it = wd.sort_by(|a, b| b.file_name().cmp(a.file_name()));
 
         let mut skipped = 0;
