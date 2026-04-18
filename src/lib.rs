@@ -98,7 +98,9 @@ nexus::export! {
 
 fn load() {
     let g = grab_global();
-    g.init();
+    if !g.init() {
+        g.settings = Some(settings::Settings::default());
+    };
 
     add_quick_access_context_menu(SHORTCUT_ID, None::<&str>, addon_shortcut()).revert_on_unload();
     register_render(RenderType::OptionsRender, render!(render_options)).revert_on_unload();
