@@ -12,12 +12,14 @@ pub struct Settings {
 impl Settings {
     pub fn default() -> Settings {
         Settings {
-            target_folder: Some(dirs_next::document_dir()
-                .unwrap()
-                .join("nexus-configs")
-                .to_str()
-                .unwrap()
-                .to_string()),
+            target_folder: Some(
+                dirs_next::document_dir()
+                    .unwrap()
+                    .join("nexus-configs")
+                    .to_str()
+                    .unwrap()
+                    .to_string(),
+            ),
             backup_on_launch: Some(false),
             delete_old_on_launch: Some(false),
             backups_to_keep: Some(5),
